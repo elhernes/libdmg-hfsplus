@@ -277,13 +277,11 @@ extern "C" {
 	uint32_t checksumBitness(uint32_t type);
 
 	uint32_t CRC32Checksum(uint32_t* crc, const unsigned char *buf, size_t len);
-	uint32_t CRC32ZeroesChecksum(uint32_t* crc, size_t len);    
 	uint32_t MKBlockChecksum(uint32_t* ckSum, const unsigned char* data, size_t len);
 
 	void BlockSHA1CRC(void* token, const unsigned char* data, size_t len);
 	void BlockCRC(void* token, const unsigned char* data, size_t len);
 	void CRCProxy(void* token, const unsigned char* data, size_t len);
-	void CRCZeroesProxy(void* token, size_t len);
 
 	void SHA1Init(SHA1_CTX* context);
 	void SHA1Update(SHA1_CTX* context, const uint8_t* data, const size_t len);
@@ -330,7 +328,7 @@ extern "C" {
 	void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx);
 	BLKXTable* insertBLKX(AbstractFile* out, AbstractFile* in, uint32_t firstSectorNumber, uint32_t numSectors, uint32_t blocksDescriptor,
 	            uint32_t checksumType, ChecksumFunc uncompressedChk, void* uncompressedChkToken, ChecksumFunc compressedChk,
-				void* compressedChkToken, Volume* volume, int addComment, AbstractAttribution* attribution);
+				void* compressedChkToken, Volume* volume, AbstractAttribution* attribution);
 
 
 	int extractDmg(AbstractFile* abstractIn, AbstractFile* abstractOut, int partNum);
