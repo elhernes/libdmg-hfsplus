@@ -449,7 +449,8 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 			case BLOCK_TERMINATOR:
 				break;
 			default:
-				break;
+				fprintf(stderr, "Unknown block type: %#08x\n", blkx->runs[i].type);
+				exit(1);
 		}
 	}
 
