@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+typedef struct {
+
+} Compressor;
+
 // Return zero on success
 int decompressRun(uint32_t type,
                   unsigned char* inBuffer, size_t inSize,

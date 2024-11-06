@@ -227,7 +227,7 @@ static void *threadWorker(void* arg) {
 
 BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSectorNumber, uint32_t numSectors_, uint32_t blocksDescriptor,
 			uint32_t checksumType, ChecksumFunc uncompressedChk_, void* uncompressedChkToken_, ChecksumFunc compressedChk_,
-			void* compressedChkToken_, Volume* volume, AbstractAttribution* attribution_) {
+			void* compressedChkToken_, Volume* volume, AbstractAttribution* attribution_, Compressor* comp_) {
 	threadData td = {
 		.out = out_,
 		.in = in_,
