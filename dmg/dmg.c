@@ -34,7 +34,11 @@ int buildInOut(const char* source, const char* dest, AbstractFile** in, Abstract
 }
 
 int usage(const char *name) {
-	printf("usage: %s [extract|build|build2048|res|iso|dmg|attribute] <in> <out> (-k <key>) (partition)\n", name);
+	printf("usage: %s (OPTIONS) [extract|build|build2048|res|iso|dmg|attribute] <in> <out> (partition)\n", name);
+	printf("OPTIONS:\n");
+	printf("\t-k\tkey\n");
+	printf("\t-J\tcompressor name (%s)\n", compressionNames());
+	printf("\t-L\tcompression level\n");
 	return 2;
 }
 
