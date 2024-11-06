@@ -22,6 +22,10 @@
 
 #define SECTORS_AT_A_TIME 0x200
 
+// The base decompression buffer requested, if nothing else is specified.
+
+#define DECOMPRESS_BUFFER_REQUESTED 0x208
+
 typedef struct block {
 	size_t bufferSize;
 
@@ -252,7 +256,10 @@ BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSecto
 	td.blkx->firstSectorNumber = firstSectorNumber;
 	td.blkx->sectorCount = td.numSectors;
 	td.blkx->dataStart = 0;
-	td.blkx->decompressBufferRequested = 0x208;
+	td.blkx->decompressBufferRequested = DECOMPRESS_BUFFER_REQUESTED;
+	if (comp->minDecompressBufferRequested > td.blkx->decompressBufferRequested) {
+		td.blkx->decompressBufferRequested = comp->minDecompressBufferRequested;
+	}
 	td.blkx->blocksDescriptor = blocksDescriptor;
 	td.blkx->reserved1 = 0;
 	td.blkx->reserved2 = 0;

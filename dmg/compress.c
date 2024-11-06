@@ -5,6 +5,10 @@
 #include <bzlib.h>
 #include "dmg/adc.h"
 
+// LZMA and LZFSE seem to need a larger decompression buffer for macOS to be happy. This value is empirically taken from
+// an LZMA dmg created on macOS 14 with hdiutil.
+#define MODERN_DECOMPRESS_BUFFER_REQUESTED 0x82F
+
 #ifdef HAVE_LIBLZMA
   #include <lzma.h>
 
@@ -75,6 +79,7 @@ int getCompressor(Compressor* comp, char *name)
 {
   if (name == NULL) {
     comp->level = -1;
+    comp->minDecompressBufferRequested = 0;
   }
 
   if (name == NULL || strcasecmp(name, "bzip2") == 0) {
@@ -91,6 +96,7 @@ int getCompressor(Compressor* comp, char *name)
   if (strcasecmp(name, "lzma") == 0) {
     comp->block_type = BLOCK_LZMA;
     comp->compress = lzmaCompress;
+    comp->minDecompressBufferRequested = MODERN_DECOMPRESS_BUFFER_REQUESTED;
     return 0;
   }
 #endif
@@ -98,6 +104,7 @@ int getCompressor(Compressor* comp, char *name)
   if (strcasecmp(name, "lzfse") == 0) {
     comp->block_type = BLOCK_LZFSE;
     comp->compress = lzfseCompress;
+    comp->minDecompressBufferRequested = MODERN_DECOMPRESS_BUFFER_REQUESTED;
     return 0;
   }
 #endif

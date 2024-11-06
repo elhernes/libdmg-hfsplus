@@ -16,6 +16,7 @@ typedef struct {
   CompressFunc compress;
   int level;
   uint32_t block_type;
+  uint32_t minDecompressBufferRequested;
 } Compressor;
 
 // Pass NULL name to get the default. Return zero on success
