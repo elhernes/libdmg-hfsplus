@@ -15,6 +15,7 @@ static void cacheRun(DMG* dmg, BLKXTable* blkx, int run) {
 	void* inBuffer;
 	int ret;
 	size_t have;
+	uint32_t type;
 
 	if(dmg->runData) {
 		free(dmg->runData);
@@ -41,9 +42,14 @@ static void cacheRun(DMG* dmg, BLKXTable* blkx, int run) {
 		case BLOCK_ZEROES:
 			break;
 		default:
-				ASSERT(dmg->dmg->read(dmg->dmg, inBuffer, blkx->runs[run].compLength) == blkx->runs[run].compLength, "fread");
-				ASSERT(decompressRun(blkx->runs[run].type, inBuffer, blkx->runs[run].compLength, dmg->runData, bufferSize, bufferSize) == 0,
-					"decompression failed");
+			type = blkx->runs[run].type;
+			if (compressionBlockTypeSupported(type) != 0) {
+				fprintf(stderr, "Unsupported block type %#08x\n", type);
+				exit(1);
+			}
+			ASSERT(dmg->dmg->read(dmg->dmg, inBuffer, blkx->runs[run].compLength) == blkx->runs[run].compLength, "fread");
+			ASSERT(decompressRun(type, inBuffer, blkx->runs[run].compLength, dmg->runData, bufferSize, bufferSize) == 0,
+				"decompression failed");
     }
 	free(inBuffer);
 

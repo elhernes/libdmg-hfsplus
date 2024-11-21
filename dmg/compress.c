@@ -139,6 +139,23 @@ const char *compressionNames()
   ;
 }
 
+int compressionBlockTypeSupported(uint32_t type)
+{
+  switch (type) {
+    case BLOCK_ADC:
+    case BLOCK_BZIP2:
+    case BLOCK_ZLIB:
+#ifdef HAVE_LIBLZMA
+    case BLOCK_LZMA:
+#endif
+#ifdef HAVE_LZFSE
+    case BLOCK_LZFSE:
+#endif
+      return 0;
+  }
+  return 1;
+}
+
 int decompressRun(uint32_t type,
                   unsigned char* inBuffer, size_t inSize,
                   unsigned char* outBuffer, size_t outBufSize, size_t expectedSize)

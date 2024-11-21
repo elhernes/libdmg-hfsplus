@@ -311,6 +311,7 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 	off_t initialOffset;
 	int i;
 	int ret;
+	uint32_t type;
 
 	bufferSize = SECTOR_SIZE * blkx->decompressBufferRequested;
 	ASSERT(inBuffer = (unsigned char*) malloc(bufferSize), "malloc");
@@ -374,6 +375,12 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 			case BLOCK_TERMINATOR:
 				break;
 			default:
+				type = blkx->runs[i].type;
+				if (compressionBlockTypeSupported(type) != 0) {
+					fprintf(stderr, "Unsupported block type %#08x\n", type);
+					exit(1);
+				}
+
 				expectedSize = blkx->runs[i].sectorCount * SECTOR_SIZE;
 				if (expectedSize > outBufSize) {
 					/* in case decompressBufferRequested is not enough for one-shot decompression */
@@ -382,7 +389,7 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 				}
 
 				ASSERT(in->read(in, inBuffer, blkx->runs[i].compLength) == blkx->runs[i].compLength, "fread");
-				ASSERT(decompressRun(blkx->runs[i].type, inBuffer, blkx->runs[i].compLength, outBuffer, outBufSize, expectedSize) == 0,
+				ASSERT(decompressRun(type, inBuffer, blkx->runs[i].compLength, outBuffer, outBufSize, expectedSize) == 0,
 					"decompression failed");
 				ASSERT(out->write(out, outBuffer, expectedSize) == expectedSize, "mWrite");
 		}

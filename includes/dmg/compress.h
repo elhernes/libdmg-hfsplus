@@ -34,6 +34,9 @@ int getCompressor(Compressor* comp, char *name);
 const char *compressionNames();
 
 // Return zero on success
+int compressionBlockTypeSupported(uint32_t type);
+
+// Return zero on success
 int decompressRun(uint32_t type,
                   unsigned char* inBuffer, size_t inSize,
                   unsigned char* outBuffer, size_t outBufSize, size_t expectedSize);
