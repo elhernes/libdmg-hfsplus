@@ -50,12 +50,12 @@ int main(int argc, char* argv[]) {
 	int opt;
 	char *cmd, *infile, *outfile;
 	char *key = NULL;
-	Compressor comp;
+	Compressor comp = {.level = COMPRESSION_LEVEL_DEFAULT };
 	int ret;
 	int runSectors = DEFAULT_SECTORS_AT_A_TIME;
 
 	TestByteOrder();
-	getCompressor(&comp, NULL);
+	initDefaultCompressor(&comp);
 
 	const char *optstring = "k:c:l:r:";
 	const struct option longopts[] = {

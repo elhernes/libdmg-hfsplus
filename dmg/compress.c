@@ -26,7 +26,7 @@
     lzma_ret lret;
 
     *compSize = 0;
-    if (level == -1)
+    if (level == COMPRESSION_LEVEL_DEFAULT)
       level = LZMA_PRESET_DEFAULT;
     lret = lzma_easy_buffer_encode(level, LZMA_CHECK_NONE, NULL, inBuffer, inSize, outBuffer,
       compSize, outBufSize);
@@ -55,7 +55,7 @@ static int bz2Compress(unsigned char *inBuffer, size_t inSize,
                        unsigned char *outBuffer, size_t outBufSize, size_t *compSize, int level)
 {
   unsigned int bz2CompSize = outBufSize;
-  if (level == -1)
+  if (level == COMPRESSION_LEVEL_DEFAULT)
     level = 9;
   int ret = (BZ2_bzBuffToBuffCompress((char*)outBuffer, &bz2CompSize, (char*)inBuffer, inSize, level, 0, 0) != BZ_OK);
   *compSize = bz2CompSize;
@@ -66,7 +66,7 @@ static int zlibCompress(unsigned char *inBuffer, size_t inSize,
                         unsigned char *outBuffer, size_t outBufSize, size_t *compSize, int level)
 {
   *compSize = outBufSize;
-  if (level == -1)
+  if (level == COMPRESSION_LEVEL_DEFAULT)
     level = Z_DEFAULT_COMPRESSION;
   return (compress2(outBuffer, compSize, inBuffer, inSize, level) != Z_OK);
 }
@@ -87,13 +87,15 @@ size_t modernDecompressBuffer(size_t runSectors)
   return runSectors * 2 + 64;
 }
 
+void initDefaultCompressor(Compressor* comp)
+{
+  comp->level = COMPRESSION_LEVEL_DEFAULT;
+  getCompressor(comp, COMPRESSOR_DEFAULT);
+}
+
 int getCompressor(Compressor* comp, char *name)
 {
-  if (name == NULL) {
-    comp->level = -1;
-  }
-
-  if (name == NULL || strcasecmp(name, "bzip2") == 0) {
+  if (strcasecmp(name, "bzip2") == 0) {
     comp->block_type = BLOCK_BZIP2;
     comp->compress = bz2Compress;
     comp->decompressBuffer = oldDecompressBuffer;

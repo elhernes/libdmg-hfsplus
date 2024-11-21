@@ -7,6 +7,9 @@
 extern "C" {
 #endif
 
+#define COMPRESSOR_DEFAULT "bzip2"
+#define COMPRESSION_LEVEL_DEFAULT (-1)
+
 #define MIN_DECOMPRESS_BUFFER_SECTORS 0x208
 
 // Return zero on success
@@ -23,7 +26,9 @@ typedef struct {
   uint32_t block_type;
 } Compressor;
 
-// Pass NULL name to get the default. Return zero on success
+void initDefaultCompressor(Compressor* comp);
+
+// Return zero on success
 int getCompressor(Compressor* comp, char *name);
 
 const char *compressionNames();
