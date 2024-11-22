@@ -11,11 +11,12 @@
   static int lzmaDecompress(unsigned char* inBuffer, size_t inSize, unsigned char* outBuffer, size_t outBufSize, size_t *decompSize)
   {
     lzma_ret lret;
-    uint64_t memlimit = UINT64_MAX;
+    /* More memory than lzma ever needs */
+    uint64_t error_if_memory_usage_exceeds = 65 * 1024 * 1024;
     size_t inPos = 0;
     *decompSize = 0;
 
-    lret = lzma_stream_buffer_decode(&memlimit, LZMA_FAIL_FAST, NULL,
+    lret = lzma_stream_buffer_decode(&error_if_memory_usage_exceeds, LZMA_FAIL_FAST, NULL,
       inBuffer, &inPos, inSize, outBuffer, decompSize, outBufSize);
     return lret != LZMA_OK;
   }
