@@ -305,7 +305,6 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 	unsigned char* outBuffer;
 	unsigned char zero;
 	size_t bufferSize;
-	size_t outBufSize;
 	size_t have;
 	size_t expectedSize;
 	off_t initialOffset;
@@ -315,9 +314,6 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 
 	bufferSize = SECTOR_SIZE * blkx->decompressBufferRequested;
 	ASSERT(inBuffer = (unsigned char*) malloc(bufferSize), "malloc");
-
-	outBufSize = bufferSize;
-	ASSERT(outBuffer = (unsigned char*) malloc(outBufSize), "malloc");
 
 	initialOffset =	out->tell(out);
 	ASSERT(initialOffset != -1, "ftello");
@@ -382,19 +378,14 @@ void extractBLKX(AbstractFile* in, AbstractFile* out, BLKXTable* blkx) {
 				}
 
 				expectedSize = blkx->runs[i].sectorCount * SECTOR_SIZE;
-				if (expectedSize > outBufSize) {
-					/* in case decompressBufferRequested is not enough for one-shot decompression */
-					outBufSize = expectedSize;
-					outBuffer = (unsigned char*) realloc(outBuffer, outBufSize);
-				}
-
+				ASSERT(outBuffer = (unsigned char*)malloc(expectedSize), "malloc");
 				ASSERT(in->read(in, inBuffer, blkx->runs[i].compLength) == blkx->runs[i].compLength, "fread");
-				ASSERT(decompressRun(type, inBuffer, blkx->runs[i].compLength, outBuffer, outBufSize, expectedSize) == 0,
+				ASSERT(decompressRun(type, inBuffer, blkx->runs[i].compLength, outBuffer, expectedSize) == 0,
 					"decompression failed");
 				ASSERT(out->write(out, outBuffer, expectedSize) == expectedSize, "mWrite");
+				free(outBuffer);
 		}
 	}
 
 	free(inBuffer);
-	free(outBuffer);
 }

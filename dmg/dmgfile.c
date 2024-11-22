@@ -48,7 +48,7 @@ static void cacheRun(DMG* dmg, BLKXTable* blkx, int run) {
 				exit(1);
 			}
 			ASSERT(dmg->dmg->read(dmg->dmg, inBuffer, blkx->runs[run].compLength) == blkx->runs[run].compLength, "fread");
-			ASSERT(decompressRun(type, inBuffer, blkx->runs[run].compLength, dmg->runData, bufferSize, bufferSize) == 0,
+			ASSERT(decompressRun(type, inBuffer, blkx->runs[run].compLength, dmg->runData, bufferSize) == 0,
 				"decompression failed");
     }
 	free(inBuffer);

@@ -159,27 +159,27 @@ int compressionBlockTypeSupported(uint32_t type)
 
 int decompressRun(uint32_t type,
                   unsigned char* inBuffer, size_t inSize,
-                  unsigned char* outBuffer, size_t outBufSize, size_t expectedSize)
+                  unsigned char* outBuffer, size_t expectedSize)
 {
   size_t decompSize;
   int ret;
 
   if (type == BLOCK_ADC) {
-    ret = (adc_decompress(inSize, inBuffer, outBufSize, outBuffer, &decompSize) != inSize);
+    ret = (adc_decompress(inSize, inBuffer, expectedSize, outBuffer, &decompSize) != inSize);
   } else if (type == BLOCK_ZLIB) {
-    decompSize = outBufSize;
+    decompSize = expectedSize;
     ret = (uncompress(outBuffer, &decompSize, inBuffer, inSize) != Z_OK);
   } else if (type == BLOCK_BZIP2) {
-    unsigned int bz2DecompSize = outBufSize;
+    unsigned int bz2DecompSize = expectedSize;
     ret = (BZ2_bzBuffToBuffDecompress((char*)outBuffer, &bz2DecompSize, (char*)inBuffer, inSize, 0, 0) != BZ_OK);
     decompSize = bz2DecompSize;
 #ifdef HAVE_LIBLZMA
   } else if (type == BLOCK_LZMA) {
-    ret = lzmaDecompress(inBuffer, inSize, outBuffer, outBufSize, &decompSize);
+    ret = lzmaDecompress(inBuffer, inSize, outBuffer, expectedSize, &decompSize);
 #endif
 #ifdef HAVE_LZFSE
   } else if (type == BLOCK_LZFSE) {
-    ret = lzfseDecompress(inBuffer, inSize, outBuffer, outBufSize, &decompSize);
+    ret = lzfseDecompress(inBuffer, inSize, outBuffer, expectedSize, &decompSize);
 #endif
   } else {
     fprintf(stderr, "Unsupported block type: %#08x\n", type);
