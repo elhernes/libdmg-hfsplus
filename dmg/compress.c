@@ -8,6 +8,14 @@
 #ifdef HAVE_LIBLZMA
   #include <lzma.h>
 
+  // LZMA_FAIL_FAST was introduced in 5.3.3, attempting to use it in earlier versions
+  // yields an error.
+  #ifdef LZMA_FAIL_FAST
+    #define LZMA_DECODE_OPTS LZMA_FAIL_FAST
+  #else
+    #define LZMA_DECODE_OPTS 0
+  #endif
+
   static int lzmaDecompress(unsigned char* inBuffer, size_t inSize, unsigned char* outBuffer, size_t outBufSize, size_t *decompSize)
   {
     lzma_ret lret;
@@ -16,7 +24,7 @@
     size_t inPos = 0;
     *decompSize = 0;
 
-    lret = lzma_stream_buffer_decode(&error_if_memory_usage_exceeds, LZMA_FAIL_FAST, NULL,
+    lret = lzma_stream_buffer_decode(&error_if_memory_usage_exceeds, LZMA_DECODE_OPTS, NULL,
       inBuffer, &inPos, inSize, outBuffer, decompSize, outBufSize);
     return lret != LZMA_OK;
   }
