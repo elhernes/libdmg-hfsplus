@@ -95,13 +95,23 @@ static block* blockRead(threadData* d) {
 		ASSERT((b->insize = d->in->read(d->in, b->inbuf, readSize)) == readSize, "mRead");	
 	} else {
 		// Steal from the next block
+		ASSERT(d->nextInSize > 0, "nextInSize");
 		memcpy(b->inbuf, d->nextInBuffer, d->nextInSize);
 		b->insize = d->nextInSize;
+		if (d->sectorsRemain > 1) { // All (but possibly last) sector should be full
+			ASSERT(b->insize == readSize, "mRead");
+		}
 	}
 
-	if (d->sectorsRemain - b->run.sectorCount > 0) {
+	d->curSector += b->run.sectorCount;
+	d->sectorsRemain -= b->run.sectorCount;
+	d->sectorsRead += b->run.sectorCount;
+	d->curRun++;
+
+	if (d->sectorsRemain > 0) {
 		d->nextInSize = d->in->read(d->in, d->nextInBuffer, readSize);
 	}
+
 
 	// printf("run %d: sectors=%" PRId64 ", left=%d\n", b->idx, b->run.sectorCount, d->sectorsRemain);
 
@@ -127,11 +137,6 @@ static block* blockRead(threadData* d) {
 		b->keepRaw = (d->keepRaw == KeepCurrentRaw || d->keepRaw == KeepCurrentAndNextRaw);
 	}
 	
-	d->curSector += b->run.sectorCount;
-	d->sectorsRemain -= b->run.sectorCount;
-	d->sectorsRead += b->run.sectorCount;
-	d->curRun++;
-
 	ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
 
 	return b;
@@ -229,6 +234,7 @@ BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSecto
 		.attribution = attribution_,
 		.nextPending = 0,
 		.pending = NULL,
+		.nextInSize = 0,
 	};
 	pthread_mutex_init(&td.inMut, NULL);
 	pthread_mutex_init(&td.outMut, NULL);
