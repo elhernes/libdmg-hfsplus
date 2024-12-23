@@ -92,15 +92,16 @@ static block* blockRead(threadData* d) {
 	size_t readSize = b->run.sectorCount * SECTOR_SIZE;
 
 	if (b->idx == 0) {
-		ASSERT((b->insize = d->in->read(d->in, b->inbuf, readSize)) == readSize, "mRead");	
+		b->insize = d->in->read(d->in, b->inbuf, readSize);
 	} else {
 		// Steal from the next block
-		ASSERT(d->nextInSize > 0, "nextInSize");
 		memcpy(b->inbuf, d->nextInBuffer, d->nextInSize);
 		b->insize = d->nextInSize;
-		if (d->sectorsRemain > 1) { // All (but possibly last) sector should be full
-			ASSERT(b->insize == readSize, "mRead");
-		}
+	}
+
+	ASSERT(b->insize > 0, "something to read");
+	if (d->sectorsRemain > 1) { // All (but possibly last) sector should be full
+		ASSERT(b->insize == readSize, "partial block");
 	}
 
 	d->curSector += b->run.sectorCount;
