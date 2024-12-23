@@ -1,6 +1,7 @@
 #include <string.h>
 #include "common.h"
 #include "abstractfile.h"
+#include "dmg/dmglib.h"
 #include <dmg/attribution.h>
 #include <dmg/dmg.h>
 #include <dmg/dmgfile.h>
