@@ -34,6 +34,7 @@ typedef struct {
 	pthread_mutex_t inMut;
 	AbstractFile* in;
 	uint32_t numSectors;
+	uint32_t sectorsRead;
 	uint32_t curRun;
 	uint64_t curSector;
 	uint64_t startOff;
@@ -128,6 +129,7 @@ static block* blockRead(threadData* d) {
 	
 	d->curSector += b->run.sectorCount;
 	d->numSectors -= b->run.sectorCount;
+	d->sectorsRead += b->run.sectorCount;
 	d->curRun++;
 
 	ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
@@ -219,6 +221,7 @@ BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSecto
 		.in = in_,
 		.runSectors = runSectors,
 		.numSectors = numSectors_,
+		.sectorsRead = 0,
 		.uncompressedChk = uncompressedChk_,
 		.uncompressedChkToken = uncompressedChkToken_,
 		.compressedChk = compressedChk_,
@@ -239,7 +242,6 @@ BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSecto
 	td.blkx->fUDIFBlocksSignature = UDIF_BLOCK_SIGNATURE;
 	td.blkx->infoVersion = 1;
 	td.blkx->firstSectorNumber = firstSectorNumber;
-	td.blkx->sectorCount = td.numSectors;
 	td.blkx->dataStart = 0;
 
 	td.blkx->decompressBufferRequested = comp->decompressBuffer(runSectors);
@@ -292,6 +294,7 @@ BLKXTable* insertBLKX(AbstractFile* out_, AbstractFile* in_, uint32_t firstSecto
 	td.blkx->runs[td.curRun].compOffset = td.out->tell(td.out) - td.blkx->dataStart;
 	td.blkx->runs[td.curRun].compLength = 0;
 	td.blkx->blocksRunCount = td.curRun + 1;
+	td.blkx->sectorCount = td.sectorsRead;
 
 	free(td.nextInBuffer);
 
