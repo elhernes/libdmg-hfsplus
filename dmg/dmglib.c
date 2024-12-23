@@ -335,7 +335,7 @@ int convertToDMG(AbstractFile* abstractIn, AbstractFile* abstractOut, Compressor
 	
 	printf("Processing DDM...\n"); fflush(stdout);
 	DDM = (DriverDescriptorRecord*) malloc(SECTOR_SIZE);
-	abstractIn->seek(abstractIn, 0);
+	ASSERT(abstractIn->seek(abstractIn, 0) == 0, "seek");
 	ASSERT(abstractIn->read(abstractIn, DDM, SECTOR_SIZE) == SECTOR_SIZE, "fread");
 	flipDriverDescriptorRecord(DDM, FALSE);
 	
@@ -346,14 +346,14 @@ int convertToDMG(AbstractFile* abstractIn, AbstractFile* abstractOut, Compressor
 		
 		printf("Processing partition map...\n"); fflush(stdout);
 		
-		abstractIn->seek(abstractIn, BlockSize);
+		ASSERT(abstractIn->seek(abstractIn, BlockSize) == 0, "seek");
 		ASSERT(abstractIn->read(abstractIn, partitions, BlockSize) == BlockSize, "fread");
 		flipPartitionMultiple(partitions, FALSE, FALSE, BlockSize);
 		
 		partitionTableSize = BlockSize * partitions->pmMapBlkCnt;
 		partitions = (Partition*) realloc(partitions, partitionTableSize);
 		
-		abstractIn->seek(abstractIn, BlockSize);
+		ASSERT(abstractIn->seek(abstractIn, BlockSize) == 0, "seek");
 		ASSERT(abstractIn->read(abstractIn, partitions, partitionTableSize) == partitionTableSize, "fread");
 		flipPartition(partitions, FALSE, BlockSize);
 		
@@ -370,7 +370,7 @@ int convertToDMG(AbstractFile* abstractIn, AbstractFile* abstractOut, Compressor
 			
 			memset(&uncompressedToken, 0, sizeof(uncompressedToken));
 			
-			abstractIn->seek(abstractIn, partitions[i].pmPyPartStart * BlockSize);
+			ASSERT(abstractIn->seek(abstractIn, partitions[i].pmPyPartStart * BlockSize) == 0, "seek");
 			blkx = insertBLKX(abstractOut, abstractIn, partitions[i].pmPyPartStart, partitions[i].pmPartBlkCnt, i, CHECKSUM_UDIF_CRC32,
 						&BlockCRC, &uncompressedToken, &CRCProxy, &dataForkToken, NULL, NULL, comp, runSectors);
 			
@@ -411,7 +411,7 @@ int convertToDMG(AbstractFile* abstractIn, AbstractFile* abstractOut, Compressor
 		
 		memset(&uncompressedToken, 0, sizeof(uncompressedToken));
 		
-		abstractIn->seek(abstractIn, 0);
+		ASSERT(abstractIn->seek(abstractIn, 0) == 0, "seek");
 		blkx = insertBLKX(abstractOut, abstractIn, 0, fileLength/SECTOR_SIZE, ENTIRE_DEVICE_DESCRIPTOR, CHECKSUM_UDIF_CRC32,
 					&BlockCRC, &uncompressedToken, &CRCProxy, &dataForkToken, NULL, NULL, comp, runSectors);
 		blkx->checksum.data[0] = uncompressedToken.crc;
