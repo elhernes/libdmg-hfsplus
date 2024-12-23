@@ -407,12 +407,16 @@ int convertToDMG(AbstractFile* abstractIn, AbstractFile* abstractOut, Compressor
 	} else {
 		printf("No DDM! Just doing one huge blkx then...\n"); fflush(stdout);
 		
+		off_t numSectors = SECTORS_UNTIL_EOF;
 		fileLength = abstractIn->getLength(abstractIn);
+		if (fileLength != FILE_SIZE_UNKNOWN) {
+			numSectors = fileLength / SECTOR_SIZE;
+		}
 		
 		memset(&uncompressedToken, 0, sizeof(uncompressedToken));
 		
 		ASSERT(abstractIn->seek(abstractIn, 0) == 0, "seek");
-		blkx = insertBLKX(abstractOut, abstractIn, 0, fileLength/SECTOR_SIZE, ENTIRE_DEVICE_DESCRIPTOR, CHECKSUM_UDIF_CRC32,
+		blkx = insertBLKX(abstractOut, abstractIn, 0, numSectors, ENTIRE_DEVICE_DESCRIPTOR, CHECKSUM_UDIF_CRC32,
 					&BlockCRC, &uncompressedToken, &CRCProxy, &dataForkToken, NULL, NULL, comp, runSectors);
 		blkx->checksum.data[0] = uncompressedToken.crc;
 		resources = insertData(resources, "blkx", 0, "whole disk (unknown partition : 0)", 0, false, (const char*) blkx, sizeof(BLKXTable) + (blkx->blocksRunCount * sizeof(BLKXRun)), ATTRIBUTE_HDIUTIL);

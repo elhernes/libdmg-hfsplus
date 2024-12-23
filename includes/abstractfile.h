@@ -4,6 +4,8 @@
 #include "common.h"
 #include <stdint.h>
 
+#define FILE_SIZE_UNKNOWN (-1)
+
 typedef struct AbstractFile AbstractFile;
 typedef struct AbstractFile2 AbstractFile2;
 

@@ -391,7 +391,7 @@ static void pipeClose(AbstractFile* file) {
 }
 
 static off_t pipeGetLength(AbstractFile* file) {
-	return 439353344; // FIXME: remove test length, support unknown length
+	return FILE_SIZE_UNKNOWN;
 }
 
 static int pipeEOF(AbstractFile* file) {

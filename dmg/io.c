@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <dmg/dmg.h>
+#include <dmg/dmglib.h>
 #include <dmg/compress.h>
 #include <dmg/attribution.h>
 #include <inttypes.h>
@@ -87,8 +88,9 @@ static block* blockRead(threadData* d) {
 	
 	block* b = blockAlloc(d->bufferSize, d->curRun);
 		
+	bool untilEOF = d->sectorsRemain == SECTORS_UNTIL_EOF;
 	b->run.sectorStart = d->curSector;
-	b->run.sectorCount = (d->sectorsRemain > d->runSectors) ? d->runSectors : d->sectorsRemain;
+	b->run.sectorCount = (untilEOF || d->sectorsRemain > d->runSectors) ? d->runSectors : d->sectorsRemain;
 	size_t readSize = b->run.sectorCount * SECTOR_SIZE;
 
 	if (b->idx == 0) {
@@ -99,17 +101,23 @@ static block* blockRead(threadData* d) {
 		b->insize = d->nextInSize;
 	}
 
-	ASSERT(b->insize > 0, "something to read");
-	if (d->sectorsRemain > 1) { // All (but possibly last) sector should be full
-		ASSERT(b->insize == readSize, "partial block");
+	if (untilEOF && d->in->eof(d->in)) {
+		if (b->insize == 0) {
+			blockFree(b);
+			ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
+			return NULL;
+		}
+	} else {
+		ASSERT(b->insize == readSize, "unexpected block size");
 	}
 
 	d->curSector += b->run.sectorCount;
-	d->sectorsRemain -= b->run.sectorCount;
+	if (!untilEOF)
+		d->sectorsRemain -= b->run.sectorCount;
 	d->sectorsRead += b->run.sectorCount;
 	d->curRun++;
 
-	if (d->sectorsRemain > 0) {
+	if (untilEOF || d->sectorsRemain > 0) {
 		d->nextInSize = d->in->read(d->in, d->nextInBuffer, readSize);
 	}
 

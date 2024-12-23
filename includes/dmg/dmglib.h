@@ -5,6 +5,8 @@
 #include "abstractfile.h"
 #include "compress.h"
 
+#define SECTORS_UNTIL_EOF (-1)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
