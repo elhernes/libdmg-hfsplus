@@ -39,9 +39,10 @@ typedef struct {
 	uint32_t curRun;
 	uint64_t curSector;
 	uint64_t startOff;
-	unsigned char *nextInBuffer;
-	size_t nextInSize;	
 	enum ShouldKeepRaw keepRaw;
+	// Need to read ahead for cross-block sentinel finding
+	unsigned char *nextInBuffer;
+	size_t nextInSize;
 
 	// Write
 	pthread_mutex_t outMut;
@@ -77,6 +78,19 @@ static void blockFree(block* b) {
 	free(b);
 }
 
+// Are we reading until EOF?
+static int untilEOF(threadData *d) {
+	return d->sectorsRemain == SECTORS_UNTIL_EOF;
+}
+
+static size_t nextReadSectors(threadData *d) {
+	if (untilEOF(d))
+		return d->runSectors;
+	if (d->sectorsRemain >= d->runSectors)
+		return d->runSectors;
+	return d->sectorsRemain;
+}
+
 // Return NULL when no more blocks
 static block* blockRead(threadData* d) {
 	ASSERT(pthread_mutex_lock(&d->inMut) == 0, "pthread_mutex_lock");
@@ -88,9 +102,8 @@ static block* blockRead(threadData* d) {
 	
 	block* b = blockAlloc(d->bufferSize, d->curRun);
 		
-	bool untilEOF = d->sectorsRemain == SECTORS_UNTIL_EOF;
 	b->run.sectorStart = d->curSector;
-	b->run.sectorCount = (untilEOF || d->sectorsRemain > d->runSectors) ? d->runSectors : d->sectorsRemain;
+	b->run.sectorCount = nextReadSectors(d);
 	size_t readSize = b->run.sectorCount * SECTOR_SIZE;
 
 	if (b->idx == 0) {
@@ -101,7 +114,7 @@ static block* blockRead(threadData* d) {
 		b->insize = d->nextInSize;
 	}
 
-	if (untilEOF && d->in->eof(d->in)) {
+	if (untilEOF(d) && d->in->eof(d->in)) {
 		if (b->insize == 0) {
 			blockFree(b);
 			ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
@@ -114,13 +127,13 @@ static block* blockRead(threadData* d) {
 	}
 
 	d->curSector += b->run.sectorCount;
-	if (!untilEOF)
+	if (!untilEOF(d))
 		d->sectorsRemain -= b->run.sectorCount;
 	d->sectorsRead += b->run.sectorCount;
 	d->curRun++;
 
 	// Read the next block in advance, so we can handle cross-block attribution
-	size_t nextReadSize = ((untilEOF || d->sectorsRemain > d->runSectors) ? d->runSectors : d->sectorsRemain) * SECTOR_SIZE;
+	size_t nextReadSize = nextReadSectors(d) * SECTOR_SIZE;
 	if (nextReadSize > 0) {
 		d->nextInSize = d->in->read(d->in, d->nextInBuffer, nextReadSize);
 	} else {
