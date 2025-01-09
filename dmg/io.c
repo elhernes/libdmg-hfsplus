@@ -91,6 +91,15 @@ static size_t nextReadSectors(threadData *d) {
 	return d->sectorsRemain;
 }
 
+static void readNext(threadData* d) {
+	size_t readSize = nextReadSectors(d) * SECTOR_SIZE;
+	if (readSize > 0) {
+		d->nextInSize = d->in->read(d->in, d->nextInBuffer, readSize);
+	} else {
+		d->nextInSize = 0;
+	}
+}
+
 // Return NULL when no more blocks
 static block* blockRead(threadData* d) {
 	ASSERT(pthread_mutex_lock(&d->inMut) == 0, "pthread_mutex_lock");
@@ -106,13 +115,11 @@ static block* blockRead(threadData* d) {
 	b->run.sectorCount = nextReadSectors(d);
 	size_t readSize = b->run.sectorCount * SECTOR_SIZE;
 
-	if (b->idx == 0) {
-		b->insize = d->in->read(d->in, b->inbuf, readSize);
-	} else {
-		// Steal from the next block
-		memcpy(b->inbuf, d->nextInBuffer, d->nextInSize);
-		b->insize = d->nextInSize;
-	}
+	if (b->idx == 0)
+		readNext(d);
+	// Steal from the next block
+	memcpy(b->inbuf, d->nextInBuffer, d->nextInSize);
+	b->insize = d->nextInSize;
 
 	if (untilEOF(d) && d->in->eof(d->in)) {
 		if (b->insize == 0) {
@@ -133,13 +140,7 @@ static block* blockRead(threadData* d) {
 	d->curRun++;
 
 	// Read the next block in advance, so we can handle cross-block attribution
-	size_t nextReadSize = nextReadSectors(d) * SECTOR_SIZE;
-	if (nextReadSize > 0) {
-		d->nextInSize = d->in->read(d->in, d->nextInBuffer, nextReadSize);
-	} else {
-		d->nextInSize = 0;
-	}
-
+	readNext(d);
 
 	// printf("run %d: sectors=%" PRId64 ", left=%d\n", b->idx, b->run.sectorCount, d->sectorsRemain);
 
