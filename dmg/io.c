@@ -104,7 +104,9 @@ static void readNext(threadData* d) {
 static block* blockRead(threadData* d) {
 	ASSERT(pthread_mutex_lock(&d->inMut) == 0, "pthread_mutex_lock");
 
-	if (d->sectorsRemain == 0) {
+	size_t haveSectors = (d->nextInSize / SECTOR_SIZE) + (d->nextInSize % SECTOR_SIZE != 0);
+	size_t wantSectors = nextReadSectors(d);
+	if (wantSectors == 0) {
 		ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
 		return NULL;
 	}
@@ -112,8 +114,8 @@ static block* blockRead(threadData* d) {
 	block* b = blockAlloc(d->bufferSize, d->curRun);
 		
 	b->run.sectorStart = d->curSector;
-	b->run.sectorCount = nextReadSectors(d);
-	size_t readSize = b->run.sectorCount * SECTOR_SIZE;
+	b->run.sectorCount = wantSectors;
+	size_t readSize = wantSectors * SECTOR_SIZE;
 
 	// Steal from the next block
 	memcpy(b->inbuf, d->nextInBuffer, d->nextInSize);
