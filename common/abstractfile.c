@@ -370,10 +370,15 @@ static size_t pipeWrite(AbstractFile* file, const void* data, size_t len) {
 
 static int pipeSeek(AbstractFile* file, off_t offset) {
 	PipeWrapperInfo* info = (PipeWrapperInfo*) (file->data);
-	if (info->pos < info->bufferSize) {
+	if (info->pos == offset) { // it's a noop
+		return 0;
+	}
+	if (offset < info->bufferSize) { // we have data in our buffer
 		info->pos = offset;
 		return 0;
 	}
+
+	fprintf(stderr, "Bad seek from %#0jx to %#0jx\n", (intmax_t)info->pos, (intmax_t)offset);
 	return -1;
 }
 
