@@ -381,11 +381,23 @@ static size_t pipeWrite(AbstractFile* file, const void* data, size_t len) {
 
 static int pipeSeek(AbstractFile* file, off_t offset) {
 	PipeWrapperInfo* info = (PipeWrapperInfo*) (file->data);
-	if (info->pos == offset) { // it's a noop
+
+	// seek into our buffer if possible
+	if (offset < info->bufferSize) {
+		info->pos = offset;
 		return 0;
 	}
-	if (offset < info->bufferSize) { // we have data in our buffer
-		info->pos = offset;
+	
+	// seek forward can be done by reading
+	if (info->filePos <= offset) {
+		char buf[4096];
+		off_t remain = offset - info->filePos;
+		while (remain > 0) {
+			size_t bytes = remain > 4096 ? 4096 : remain;
+			ASSERT(fread(buf, 1, bytes, info->file) == bytes, "read");
+			info->filePos += bytes;
+		}
+		info->pos = info->filePos;
 		return 0;
 	}
 
