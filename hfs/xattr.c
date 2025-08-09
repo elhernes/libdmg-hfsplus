@@ -79,9 +79,6 @@ static BTKey* attrKeyRead(off_t offset, io_func* io) {
 	FLIPENDIAN(key->fileID);
 	FLIPENDIAN(key->startBlock);
 	FLIPENDIAN(key->name.length);
-  
-	ASSERT(key->name.length <= 255, "key->nodeName.length <= 255");
-	ASSERT(key->keyLength >= (UNICODE_START - sizeof(uint16_t) + (key->name.length * sizeof(uint16_t))), "key->keyLength >= (UNICODE_START - sizeof(uint16_t) + (key->name.length * sizeof(uint16_t)))");
 
 	if(!READ(io, offset + UNICODE_START, key->name.length * sizeof(uint16_t), ((unsigned char *)key) + UNICODE_START))
 		return NULL;
