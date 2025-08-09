@@ -22,7 +22,7 @@ typedef struct block {
 
 	unsigned char* outbuf;
 	size_t outsize;
-	
+
 	struct block* next;
 } block;
 
@@ -123,8 +123,8 @@ static block* blockRead(threadData* d) {
 		ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
 		return NULL;
 	}
-	
-	block* b = blockAlloc(d->bufferSize, d->curRun);	
+
+	block* b = blockAlloc(d->bufferSize, d->curRun);
 	b->run.sectorStart = d->curSector;
 
 	// Steal from the next block
@@ -168,7 +168,7 @@ static block* blockRead(threadData* d) {
 		// printf("keepRaw = %d (%p, %ld)\n", d->keepRaw, b->inbuf, b->insize);
 		b->keepRaw = (d->keepRaw == KeepCurrentRaw || d->keepRaw == KeepCurrentAndNextRaw);
 	}
-	
+
 	ASSERT(pthread_mutex_unlock(&d->inMut) == 0, "pthread_mutex_unlock");
 
 	return b;
@@ -178,7 +178,7 @@ static void blockCompress(block* b, Compressor* comp) {
 	if (!b->keepRaw) {
 		ASSERT(comp->compress(b->inbuf, b->insize, b->outbuf, b->bufferSize, &b->outsize, comp->level) == 0, "compress");
 	}
-	
+
 	if(b->keepRaw || ((b->outsize / SECTOR_SIZE) >= (b->run.sectorCount - 15))) {
 		// printf("Setting type = BLOCK_RAW\n");
 		b->run.type = BLOCK_RAW;
@@ -196,7 +196,7 @@ static void blockWrite(threadData* d, block* b) {
 	if(d->compressedChk)
 		(*d->compressedChk)(d->compressedChkToken, b->outbuf, b->outsize);
 	if (d->attribution)
-		d->attribution->observeBuffers(d->attribution, b->keepRaw, b->inbuf, b->insize, b->outbuf, b->outsize);		
+		d->attribution->observeBuffers(d->attribution, b->keepRaw, b->inbuf, b->insize, b->outbuf, b->outsize);
 
 	b->run.compOffset = d->out->tell(d->out) - d->blkx->dataStart;
 	ASSERT(d->out->write(d->out, b->outbuf, b->outsize) == b->outsize, "fwrite");
@@ -238,7 +238,7 @@ static void blockQueueAndWrite(threadData* d, block* b) {
 static void *threadWorker(void* arg) {
 	threadData* d = (threadData*)arg;
 	block *b;
-	
+
 	while(true) {
 		if (!(b = blockRead(d)))
 			break;

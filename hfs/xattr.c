@@ -3,18 +3,18 @@
 #include <hfs/hfsplus.h>
 
 static inline void flipAttrData(HFSPlusAttrData* data) {
-  FLIPENDIAN(data->recordType);
-  FLIPENDIAN(data->size);
+	FLIPENDIAN(data->recordType);
+	FLIPENDIAN(data->size);
 }
 
 static inline void flipAttrForkData(HFSPlusAttrForkData* data) {
-  FLIPENDIAN(data->recordType);
-  flipForkData(&data->theFork);
+	FLIPENDIAN(data->recordType);
+	flipForkData(&data->theFork);
 }
 
 static inline void flipAttrExtents(HFSPlusAttrExtents* data) {
-  FLIPENDIAN(data->recordType);
-  flipExtentRecord(&data->extents);
+	FLIPENDIAN(data->recordType);
+	flipExtentRecord(&data->extents);
 }
 
 static int attrCompare(BTKey* vLeft, BTKey* vRight) {
@@ -191,21 +191,21 @@ static int updateAttributes(Volume* volume, HFSPlusAttrKey* skey, HFSPlusAttrRec
 		case kHFSPlusAttrInlineData:
 			len = srecord->attrData.size + sizeof(HFSPlusAttrData);
 			record = (HFSPlusAttrRecord*) malloc(len);
-      			memcpy(record, srecord, len);
+			memcpy(record, srecord, len);
 			flipAttrData((HFSPlusAttrData*) record);
 			ret = addToBTree(volume->attrTree, (BTKey*)(&key), len, (unsigned char *)record);
 			free(record);
 			break;
 		case kHFSPlusAttrForkData:
 			record = (HFSPlusAttrRecord*) malloc(sizeof(HFSPlusAttrForkData));
-      			memcpy(record, srecord, sizeof(HFSPlusAttrForkData));
+			memcpy(record, srecord, sizeof(HFSPlusAttrForkData));
 			flipAttrForkData((HFSPlusAttrForkData*) record);
 			ret = addToBTree(volume->attrTree, (BTKey*)(&key), sizeof(HFSPlusAttrForkData), (unsigned char *)record);
 			free(record);
 			break;
 		case kHFSPlusAttrExtents:
 			record = (HFSPlusAttrRecord*) malloc(sizeof(HFSPlusAttrExtents));
-      			memcpy(record, srecord, sizeof(HFSPlusAttrExtents));
+			memcpy(record, srecord, sizeof(HFSPlusAttrExtents));
 			flipAttrExtents((HFSPlusAttrExtents*) record);
 			ret = addToBTree(volume->attrTree, (BTKey*)(&key), sizeof(HFSPlusAttrExtents), (unsigned char *)record);
 			free(record);
@@ -324,8 +324,8 @@ XAttrList* getAllExtendedAttributes(HFSCatalogNodeID CNID, Volume* volume) {
 		return NULL;
 
 	free(record);
-	
-	while(nodeNumber != 0) {    
+
+	while(nodeNumber != 0) {
 		descriptor = readBTNodeDescriptor(nodeNumber, tree);
 
 		while(recordNumber < descriptor->numRecords) {

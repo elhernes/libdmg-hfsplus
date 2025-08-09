@@ -46,9 +46,9 @@ uint32_t MKBlockChecksum(uint32_t* ckSum, const unsigned char* data, size_t len)
   uint32_t* curDWordPtr;
   uint32_t curDWord;
   uint32_t myCkSum;
-  
+
   myCkSum = *ckSum;
-   
+
   if(data) {
     curDWordPtr = (uint32_t*) data;
     while(curDWordPtr < (uint32_t*)(&data[len & 0xFFFFFFFC])) {
@@ -58,7 +58,7 @@ uint32_t MKBlockChecksum(uint32_t* ckSum, const unsigned char* data, size_t len)
       curDWordPtr++;
     }
   }
-  
+
   *ckSum = myCkSum;
   return myCkSum;
 }
@@ -215,7 +215,7 @@ void SHA1Final(uint8_t digest[SHA1_DIGEST_SIZE], SHA1_CTX* context)
         digest[i] = (uint8_t)
          ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
     }
-    
+
     /* Wipe variables */
     i = 0;
     memset(context->buffer, 0, 64);
