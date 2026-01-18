@@ -405,6 +405,8 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 			if (!silence)
 			printf("Setting permissions to %06o for %s\n", st.st_mode, fullName);
 
+#if 0
+			// permissions should be set up on the source files, not magically here...
 			if(strncmp(fullName, "/Applications/", sizeof("/Applications/") - 1) == 0) {
 				testBuffer[0] = '\0';
 				strcpy(testBuffer, "/Applications/");
@@ -438,6 +440,7 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 				if (!silence)
 				printf("Giving permissions to %s\n", fullName); fflush(stdout);
 			}
+#endif
 		}
 	}
 
@@ -820,4 +823,3 @@ loop:
 	}
 
 }
-
