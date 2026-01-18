@@ -95,6 +95,43 @@ void cmd_mkdir(Volume* volume, int argc, const char *argv[]) {
 	}
 }
 
+void cmd_mkdirp(Volume* volume, int argc, const char *argv[]) {
+	if(argc > 1) {
+		size_t nSlash=0;
+		size_t len = strlen(argv[1]);
+		char *path = strdup(argv[1]);
+		char *slash = 0;
+
+		for(size_t i=0; i<len; i++) {
+			nSlash += (path[i] == '/');
+		}
+
+		char *partial = (char *)malloc(len);
+		char **pcomp = (char**)malloc(nSlash * sizeof(char*));
+
+		// from strsep(3)
+		size_t ncomp=0;
+		for (char **ap = pcomp; (*ap = strsep(&path, "/")) != 0;) {
+			if (**ap != '\0') {
+				++ncomp;
+				if (++ap >= &pcomp[nSlash]) {
+					break;
+				}
+			}
+		}
+
+		for(size_t n=0; n<ncomp; n++) {
+			strcat(partial, "/");
+			strcat(partial, pcomp[n]);
+			newFolder(partial, volume);
+		}
+		free(partial);
+		free(pcomp);
+	} else {
+		printf("Not enough arguments");
+	}
+}
+
 void cmd_add(Volume* volume, int argc, const char *argv[]) {
 	AbstractFile *inFile;
 
@@ -362,6 +399,8 @@ int main(int argc, const char *argv[]) {
 			cmd_symlink(volume, argc - 2, argv + 2);
 		} else if(strcmp(argv[2], "mkdir") == 0) {
 			cmd_mkdir(volume, argc - 2, argv + 2);
+		} else if(strcmp(argv[2], "mkdir-p") == 0) {
+			cmd_mkdirp(volume, argc - 2, argv + 2);
 		} else if(strcmp(argv[2], "add") == 0) {
 			cmd_add(volume, argc - 2, argv + 2);
 		} else if(strcmp(argv[2], "rm") == 0) {
