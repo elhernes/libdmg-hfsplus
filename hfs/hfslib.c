@@ -351,7 +351,7 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 			memset(target, 0, sizeof(target));
 			readlink(ent->d_name, target, sizeof(target));
 			if(!silence) {
-			printf("symlink: %s -> %s\n", fullName, target); fflush(stdout);
+				printf("symlink: %s -> %s\n", fullName, target); fflush(stdout);
 			} else {
 				fwrite("@", 1, 1, stdout);
 			}
@@ -362,7 +362,7 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 		if((tmp = opendir(ent->d_name)) != NULL) {
 			closedir(tmp);
 			if (!silence) {
-			printf("folder: %s\n", fullName); fflush(stdout);
+				printf("folder: %s\n", fullName); fflush(stdout);
 			} else {
 				fwrite("/", 1, 1, stdout);
 			}
@@ -378,14 +378,14 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 			ASSERT (lstat(ent->d_name, &st) == 0, "lstat");
 			chmodFile(fullName, (int)st.st_mode, volume);
 			if (!silence) {
-			printf("Setting permissions to %06o for %s\n", st.st_mode, fullName);
+				printf("Setting permissions to %06o for %s\n", st.st_mode, fullName);
 			}
 			ASSERT(chdir(ent->d_name) == 0, "chdir");
 			addAllInFolder(cnid, volume, fullName);
 			ASSERT(chdir(cwd) == 0, "chdir");
 		} else {
 			if(!silence) {
-			printf("file: %s\n", fullName);	fflush(stdout);
+				printf("file: %s\n", fullName);	fflush(stdout);
 			} else {
 				fwrite(".", 1, 1, stdout);
 			}
@@ -403,7 +403,7 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 			ASSERT (lstat(ent->d_name, &st) == 0, "lstat");
 			chmodFile(fullName, (int)st.st_mode, volume);
 			if (!silence)
-			printf("Setting permissions to %06o for %s\n", st.st_mode, fullName);
+				printf("Setting permissions to %06o for %s\n", st.st_mode, fullName);
 
 #if 0
 			// permissions should be set up on the source files, not magically here...
@@ -418,11 +418,11 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 					|| strcmp(ent->d_name, "BootNeuter") == 0
 					) {
 						if (!silence)
-						printf("Giving setuid permissions to %s...\n", fullName); fflush(stdout);
+							printf("Giving setuid permissions to %s...\n", fullName); fflush(stdout);
 						chmodFile(fullName, 04755, volume);
 					} else {
 						if (!silence)
-						printf("Giving permissions to %s\n", fullName); fflush(stdout);
+							printf("Giving permissions to %s\n", fullName); fflush(stdout);
 						chmodFile(fullName, 0755, volume);
 					}
 				}
@@ -438,7 +438,7 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 				) {
 				chmodFile(fullName, 0755, volume);
 				if (!silence)
-				printf("Giving permissions to %s\n", fullName); fflush(stdout);
+					printf("Giving permissions to %s\n", fullName); fflush(stdout);
 			}
 #endif
 		}
@@ -511,7 +511,7 @@ static void extractOne(HFSCatalogNodeID folderID, char* name, HFSPlusCatalogReco
 			}
 		} else if(fileType == S_IFREG) {
 			if(!silence)
-			printf("file: %s\n", name);
+				printf("file: %s\n", name);
 			outFile = createAbstractFileFromFile(fopen(name, "wb"));
 			if(outFile != NULL) {
 				writeToFile(file, outFile, volume);
