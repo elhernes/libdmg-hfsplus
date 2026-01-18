@@ -340,6 +340,15 @@ void addAllInFolder(HFSCatalogNodeID folderID, Volume* volume, const char* paren
 				cnid = (list->record->recordType == kHFSPlusFolderRecord) ? (((HFSPlusCatalogFolder*)list->record)->folderID)
 				: (((HFSPlusCatalogFile*)list->record)->fileID);
 				free(name);
+				if(ent->d_type == DT_LNK) {
+					char target[4096];
+					memset(target, 0, sizeof(target));
+					readlink(ent->d_name, target, sizeof(target));
+					printf("symlink: %s -> %s\n", fullName, target); fflush(stdout);
+					makeSymlink(fullName, target, volume);
+					continue;
+				}
+
 				break;
 			}
 			free(name);
@@ -792,4 +801,3 @@ loop:
 	}
 
 }
-
