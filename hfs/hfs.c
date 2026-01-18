@@ -375,6 +375,8 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
+	hfs_setsilence(1);
+
 	io = openFlatFile(argv[1]);
 	if(io == NULL) {
 		fprintf(stderr, "error: Cannot open image-file.\n");
