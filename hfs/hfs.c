@@ -99,15 +99,18 @@ void cmd_mkdirp(Volume* volume, int argc, const char *argv[]) {
 	if(argc > 1) {
 		size_t nSlash=0;
 		size_t len = strlen(argv[1]);
-		char *path = strdup(argv[1]);
+		char *opath = strdup(argv[1]);
+		char *path = opath;
 		char *slash = 0;
 
 		for(size_t i=0; i<len; i++) {
 			nSlash += (path[i] == '/');
 		}
 
-		char *partial = (char *)malloc(len);
+		char *partial = (char *)malloc(len+1);
+		memset(partial, 0, len);
 		char **pcomp = (char**)malloc(nSlash * sizeof(char*));
+		memset(pcomp, 0, nSlash * sizeof(char*));
 
 		// from strsep(3)
 		size_t ncomp=0;
@@ -125,8 +128,10 @@ void cmd_mkdirp(Volume* volume, int argc, const char *argv[]) {
 			strcat(partial, pcomp[n]);
 			newFolder(partial, volume);
 		}
+
 		free(partial);
 		free(pcomp);
+		free(opath);
 	} else {
 		printf("Not enough arguments");
 	}
