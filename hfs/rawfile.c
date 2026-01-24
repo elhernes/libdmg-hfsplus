@@ -62,6 +62,7 @@ int allocate(RawFile* rawFile, off_t size) {
 		if(lastExtent == NULL) {
 			rawFile->extents = (Extent*) malloc(sizeof(Extent));
 			lastExtent = rawFile->extents;
+			lastExtent->startBlock = 0;
 			lastExtent->blockCount = 0;
 			lastExtent->next = NULL;
 			curBlock = volume->volumeHeader->nextAllocation;
@@ -74,6 +75,7 @@ int allocate(RawFile* rawFile, off_t size) {
 				if(lastExtent->blockCount > 0) {
 					lastExtent->next = (Extent*) malloc(sizeof(Extent));
 					lastExtent = lastExtent->next;
+					lastExtent->startBlock = 0;
 					lastExtent->blockCount = 0;
 					lastExtent->next = NULL;
 				}
@@ -302,25 +304,40 @@ int removeExtents(RawFile* rawFile) {
 	HFSPlusExtentKey extentKey;
 	int exact;
 
+	forkData = rawFile->forkData;
+	blocksLeft = forkData->totalBlocks;
+	
+	// If there are 8 or fewer extents, nothing to remove from overflow
+	// Count blocks in the first 8 extents
+	uint32_t firstEightBlocks = 0;
+	int i;
+	for(i = 0; i < 8; i++) {
+		firstEightBlocks += ((HFSPlusExtentDescriptor*)forkData->extents)[i].blockCount;
+		if(firstEightBlocks >= blocksLeft) {
+			// All blocks fit in first 8 extents, no overflow to remove
+			return TRUE;
+		}
+	}
+
+	memset(&extentKey, 0, sizeof(HFSPlusExtentKey));
 	extentKey.keyLength = sizeof(HFSPlusExtentKey) - sizeof(extentKey.keyLength);
 	extentKey.forkType = 0;
 	extentKey.fileID = rawFile->id;
 
-	forkData = rawFile->forkData;
-	blocksLeft = forkData->totalBlocks;
+	// Skip the first 8 extents
+	blocksLeft -= firstEightBlocks;
 	currentExtent = 0;
-	currentBlock = 0;
-	descriptor = (HFSPlusExtentDescriptor*) forkData->extents;
-
+	currentBlock = firstEightBlocks;
+	
 	while(blocksLeft > 0) {
-		if(currentExtent == 8) {
+		if(currentExtent == 0 || currentExtent == 8) {
 			if(rawFile->volume->extentsTree == NULL) {
 				hfs_panic("no extents overflow file loaded yet!");
 				return FALSE;
 			}
 
-			if(descriptor != ((HFSPlusExtentDescriptor*) forkData->extents)) {
-				free(descriptor);
+			if(currentExtent == 8) {
+				currentExtent = 0;
 			}
 
 			extentKey.startBlock = currentBlock;
@@ -328,11 +345,8 @@ int removeExtents(RawFile* rawFile) {
 			if(descriptor == NULL || exact == FALSE) {
 				hfs_panic("inconsistent extents information!");
 				return FALSE;
-			} else {
-				removeFromBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey));
-				currentExtent = 0;
-				continue;
 			}
+			removeFromBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey));
 		}
 
 		startBlock = descriptor[currentExtent].startBlock;
@@ -341,9 +355,14 @@ int removeExtents(RawFile* rawFile) {
 		currentBlock += blockCount;
 		blocksLeft -= blockCount;
 		currentExtent++;
+		
+		if(currentExtent == 8 && descriptor != NULL) {
+			free(descriptor);
+			descriptor = NULL;
+		}
 	}
 
-	if(descriptor != ((HFSPlusExtentDescriptor*) forkData->extents)) {
+	if(descriptor != NULL) {
 		free(descriptor);
 	}
 
@@ -353,6 +372,7 @@ int removeExtents(RawFile* rawFile) {
 int writeExtents(RawFile* rawFile) {
 	Extent* extent;
 	int currentExtent;
+	uint32_t currentBlock;  // Track file block offset
 	HFSPlusExtentKey extentKey;
 	HFSPlusExtentDescriptor descriptor[8];
 	HFSPlusForkData* forkData;
@@ -361,43 +381,57 @@ int writeExtents(RawFile* rawFile) {
 
 	forkData = rawFile->forkData;
 	currentExtent = 0;
+	currentBlock = 0;
 	extent = rawFile->extents;
 
 	memset(forkData->extents, 0, sizeof(HFSPlusExtentRecord));
 	while(extent != NULL && currentExtent < 8) {
 		((HFSPlusExtentDescriptor*)forkData->extents)[currentExtent].startBlock = extent->startBlock;
 		((HFSPlusExtentDescriptor*)forkData->extents)[currentExtent].blockCount = extent->blockCount;
+		currentBlock += extent->blockCount;
 		extent = extent->next;
 		currentExtent++;
 	}
 
 	if(extent != NULL) {
+		memset(&extentKey, 0, sizeof(HFSPlusExtentKey));
 		extentKey.keyLength = sizeof(HFSPlusExtentKey) - sizeof(extentKey.keyLength);
 		extentKey.forkType = 0;
 		extentKey.fileID = rawFile->id;
 
 		currentExtent = 0;
+		memset(descriptor, 0, sizeof(HFSPlusExtentRecord));
+		uint32_t recordStartBlock = currentBlock;  // Start of this extent record
 
 		while(extent != NULL) {
-			if(currentExtent == 0) {
-				memset(descriptor, 0, sizeof(HFSPlusExtentRecord));
-			}
-
 			if(currentExtent == 8) {
-				extentKey.startBlock = descriptor[0].startBlock;
+				// Write the filled extent record
+				extentKey.startBlock = recordStartBlock;
+				flipExtentRecord((HFSPlusExtentRecord*)descriptor);
 				addToBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey), sizeof(HFSPlusExtentRecord), (unsigned char *)(&(descriptor[0])));
+				flipExtentRecord((HFSPlusExtentRecord*)descriptor);
+				
+				// Reset for next record
 				currentExtent = 0;
+				memset(descriptor, 0, sizeof(HFSPlusExtentRecord));
+				recordStartBlock = currentBlock;  // New record starts here
 			}
 
 			descriptor[currentExtent].startBlock = extent->startBlock;
 			descriptor[currentExtent].blockCount = extent->blockCount;
+			currentBlock += extent->blockCount;
 
 			currentExtent++;
 			extent = extent->next;
 		}
 
-		extentKey.startBlock = descriptor[0].startBlock;
-		addToBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey), sizeof(HFSPlusExtentRecord), (unsigned char *)(&(descriptor[0])));
+		// Only write remaining extents if there are any
+		if(currentExtent > 0) {
+			extentKey.startBlock = recordStartBlock;
+			flipExtentRecord((HFSPlusExtentRecord*)descriptor);
+			addToBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey), sizeof(HFSPlusExtentRecord), (unsigned char *)(&(descriptor[0])));
+			flipExtentRecord((HFSPlusExtentRecord*)descriptor);
+		}
 	}
 
 	return TRUE;
