@@ -189,6 +189,15 @@ static void* searchNode(BTree* tree, uint32_t root, BTKey* searchKey, int *exact
   if(descriptor == NULL)
     return NULL;
 
+  // Handle empty node (can happen with corrupted tree or during certain deletion sequences)
+  if(descriptor->numRecords == 0) {
+    if(exact != NULL)
+      *exact = FALSE;
+
+    free(descriptor);
+    return NULL;  // Not found - empty node
+  }
+
   lastRecordDataOffset = 0;
 
   for(i = 0; i < descriptor->numRecords; i++) {
@@ -770,7 +779,7 @@ static int growBTree(BTree* tree) {
   allocate((RawFile*)(tree->io->data), ((RawFile*)(tree->io->data))->forkData->logicalSize + ((RawFile*)(tree->io->data))->forkData->clumpSize);
   increasedNodes = (((RawFile*)(tree->io->data))->forkData->logicalSize/tree->headerRec->nodeSize) - tree->headerRec->totalNodes;
 
-  newNodesStart = tree->headerRec->totalNodes / tree->headerRec->nodeSize;
+  newNodesStart = tree->headerRec->totalNodes;
 
   tree->headerRec->freeNodes += increasedNodes;
   tree->headerRec->totalNodes += increasedNodes;
@@ -889,6 +898,9 @@ static uint32_t removeNode(BTree* tree, uint32_t node) {
 
   if(node == tree->headerRec->rootNode) {
     tree->headerRec->rootNode = 0;
+    tree->headerRec->treeDepth = 0;
+    tree->headerRec->firstLeafNode = 0;
+    tree->headerRec->lastLeafNode = 0;
   }
 
   if(descriptor->bLink != 0) {
@@ -1286,9 +1298,7 @@ static int increaseHeight(BTree* tree, uint32_t newNode) {
   newNodeOffset = oldRootOffset + sizeof(oldRootKey->keyLength) + oldRootKey->keyLength + sizeof(uint32_t);
   freeOffset = newNodeOffset + sizeof(newNodeKey->keyLength) + newNodeKey->keyLength + sizeof(uint32_t);
 
-  tree->headerRec->rootNode = newRoot;
-  tree->headerRec->treeDepth = newDescriptor.height;
-
+  // Write all the node data FIRST before updating the in-memory root pointer
   ASSERT(WRITE_KEY(tree, newRoot * tree->headerRec->nodeSize + oldRootOffset, oldRootKey, tree->io), "WRITE_KEY");
   FLIPENDIAN(oldRoot);
   ASSERT(WRITE(tree->io, newRoot * tree->headerRec->nodeSize + oldRootOffset + sizeof(oldRootKey->keyLength) + oldRootKey->keyLength,
@@ -1311,7 +1321,12 @@ static int increaseHeight(BTree* tree, uint32_t newNode) {
   ASSERT(WRITE(tree->io, (newRoot * tree->headerRec->nodeSize) + tree->headerRec->nodeSize - (sizeof(uint16_t) * 3),
                   sizeof(uint16_t), &freeOffset), "WRITE");
 
-  ASSERT(writeBTNodeDescriptor(&newDescriptor, tree->headerRec->rootNode, tree), "writeBTNodeDescriptor");
+  ASSERT(writeBTNodeDescriptor(&newDescriptor, newRoot, tree), "writeBTNodeDescriptor");
+
+  // NOW update the in-memory pointers AFTER everything is written
+  tree->headerRec->rootNode = newRoot;
+  tree->headerRec->treeDepth = newDescriptor.height;
+
   ASSERT(writeBTHeaderRec(tree), "writeBTHeaderRec");
 
   free(oldRootKey);
@@ -1336,11 +1351,7 @@ int addToBTree(BTree* tree, BTKey* searchKey, size_t length, unsigned char* cont
     } while(callAgain);
   } else {
     // add the first leaf node
-    tree->headerRec->rootNode = getNewNode(tree);
-    tree->headerRec->firstLeafNode = tree->headerRec->rootNode;
-    tree->headerRec->lastLeafNode = tree->headerRec->rootNode;
-    tree->headerRec->leafRecords = 1;
-    tree->headerRec->treeDepth = 1;
+    uint32_t newRootNode = getNewNode(tree);
 
     newDescriptor.fLink = 0;
     newDescriptor.bLink = 0;
@@ -1352,19 +1363,27 @@ int addToBTree(BTree* tree, BTKey* searchKey, size_t length, unsigned char* cont
     offset = 14;
     freeOffset = offset + sizeof(searchKey->keyLength) + searchKey->keyLength + length;
 
-    ASSERT(WRITE_KEY(tree, tree->headerRec->rootNode * tree->headerRec->nodeSize + offset, searchKey, tree->io), "WRITE_KEY");
-    ASSERT(WRITE(tree->io, tree->headerRec->rootNode * tree->headerRec->nodeSize + offset + sizeof(searchKey->keyLength) + searchKey->keyLength,
+    ASSERT(WRITE_KEY(tree, newRootNode * tree->headerRec->nodeSize + offset, searchKey, tree->io), "WRITE_KEY");
+    ASSERT(WRITE(tree->io, newRootNode * tree->headerRec->nodeSize + offset + sizeof(searchKey->keyLength) + searchKey->keyLength,
                   length, content), "WRITE");
 
     FLIPENDIAN(offset);
-    ASSERT(WRITE(tree->io, (tree->headerRec->rootNode * tree->headerRec->nodeSize) + tree->headerRec->nodeSize - (sizeof(uint16_t) * 1),
+    ASSERT(WRITE(tree->io, (newRootNode * tree->headerRec->nodeSize) + tree->headerRec->nodeSize - (sizeof(uint16_t) * 1),
                     sizeof(uint16_t), &offset), "WRITE");
 
     FLIPENDIAN(freeOffset);
-    ASSERT(WRITE(tree->io, (tree->headerRec->rootNode * tree->headerRec->nodeSize) + tree->headerRec->nodeSize - (sizeof(uint16_t) * 2),
+    ASSERT(WRITE(tree->io, (newRootNode * tree->headerRec->nodeSize) + tree->headerRec->nodeSize - (sizeof(uint16_t) * 2),
                     sizeof(uint16_t), &freeOffset), "WRITE");
 
-    ASSERT(writeBTNodeDescriptor(&newDescriptor, tree->headerRec->rootNode, tree), "writeBTNodeDescriptor");
+    ASSERT(writeBTNodeDescriptor(&newDescriptor, newRootNode, tree), "writeBTNodeDescriptor");
+
+    // NOW update in-memory pointers after everything is written
+    tree->headerRec->rootNode = newRootNode;
+    tree->headerRec->firstLeafNode = newRootNode;
+    tree->headerRec->lastLeafNode = newRootNode;
+    tree->headerRec->leafRecords = 1;
+    tree->headerRec->treeDepth = 1;
+
     ASSERT(writeBTHeaderRec(tree), "writeBTHeaderRec");
   }
 
@@ -1555,12 +1574,49 @@ int removeFromBTree(BTree* tree, BTKey* searchKey) {
   int callAgain;
   int gone;
   uint32_t newNode;
+  BTNodeDescriptor* rootDescriptor;
+  BTKey* key;
+  off_t recordOffset;
 
   do {
     callAgain = FALSE;
+    gone = FALSE;
     newNode = removeRecord(tree, tree->headerRec->rootNode, searchKey, &callAgain, &gone);
     if(newNode != 0) {
       increaseHeight(tree, newNode);
+    }
+
+    // Handle when the root node was removed (tree became empty or needs to shrink)
+    if(gone) {
+      // Tree is now completely empty - reset to initial state
+      tree->headerRec->rootNode = 0;
+      tree->headerRec->treeDepth = 0;
+      tree->headerRec->firstLeafNode = 0;
+      tree->headerRec->lastLeafNode = 0;
+      tree->headerRec->leafRecords = 0;
+      ASSERT(writeBTHeaderRec(tree), "writeBTHeaderRec");
+    } else if(tree->headerRec->rootNode != 0 && tree->headerRec->treeDepth > 1) {
+      // Check if root is an index node with only 1 child - if so, make that child the new root (decrease height)
+      rootDescriptor = readBTNodeDescriptor(tree->headerRec->rootNode, tree);
+      if(rootDescriptor != NULL && rootDescriptor->kind == kBTIndexNode && rootDescriptor->numRecords == 1) {
+        uint32_t oldRoot = tree->headerRec->rootNode;
+        uint32_t newRoot;
+
+        // Get the child pointer from the only record in this index node
+        recordOffset = getRecordOffset(0, oldRoot, tree);
+        key = READ_KEY(tree, recordOffset, tree->io);
+        newRoot = getNodeNumberFromPointerRecord(recordOffset + sizeof(key->keyLength) + key->keyLength, tree->io);
+        free(key);
+
+        removeNode(tree, oldRoot);
+        tree->headerRec->rootNode = newRoot;
+        tree->headerRec->treeDepth--;
+        ASSERT(writeBTHeaderRec(tree), "writeBTHeaderRec");
+      }
+
+      if(rootDescriptor != NULL) {
+        free(rootDescriptor);
+      }
     }
   } while(callAgain);
 

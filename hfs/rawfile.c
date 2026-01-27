@@ -90,7 +90,7 @@ int allocate(RawFile* rawFile, off_t size) {
 				}
 
 				/* zero out allocated block */
-				ASSERT(WRITE(volume->image, curBlock * volume->volumeHeader->blockSize, volume->volumeHeader->blockSize, zeros), "WRITE");
+				ASSERT(WRITE(volume->image, (off_t)curBlock * volume->volumeHeader->blockSize, volume->volumeHeader->blockSize, zeros), "WRITE");
 
 				setBlockUsed(volume, curBlock, TRUE);
 				volume->volumeHeader->freeBlocks--;
@@ -304,40 +304,26 @@ int removeExtents(RawFile* rawFile) {
 	HFSPlusExtentKey extentKey;
 	int exact;
 
-	forkData = rawFile->forkData;
-	blocksLeft = forkData->totalBlocks;
-	
-	// If there are 8 or fewer extents, nothing to remove from overflow
-	// Count blocks in the first 8 extents
-	uint32_t firstEightBlocks = 0;
-	int i;
-	for(i = 0; i < 8; i++) {
-		firstEightBlocks += ((HFSPlusExtentDescriptor*)forkData->extents)[i].blockCount;
-		if(firstEightBlocks >= blocksLeft) {
-			// All blocks fit in first 8 extents, no overflow to remove
-			return TRUE;
-		}
-	}
-
 	memset(&extentKey, 0, sizeof(HFSPlusExtentKey));
 	extentKey.keyLength = sizeof(HFSPlusExtentKey) - sizeof(extentKey.keyLength);
 	extentKey.forkType = 0;
 	extentKey.fileID = rawFile->id;
 
-	// Skip the first 8 extents
-	blocksLeft -= firstEightBlocks;
+	forkData = rawFile->forkData;
+	blocksLeft = forkData->totalBlocks;
 	currentExtent = 0;
-	currentBlock = firstEightBlocks;
-	
+	currentBlock = 0;
+	descriptor = (HFSPlusExtentDescriptor*) forkData->extents;
+
 	while(blocksLeft > 0) {
-		if(currentExtent == 0 || currentExtent == 8) {
+		if(currentExtent == 8) {
 			if(rawFile->volume->extentsTree == NULL) {
 				hfs_panic("no extents overflow file loaded yet!");
 				return FALSE;
 			}
 
-			if(currentExtent == 8) {
-				currentExtent = 0;
+			if(descriptor != ((HFSPlusExtentDescriptor*) forkData->extents)) {
+				free(descriptor);
 			}
 
 			extentKey.startBlock = currentBlock;
@@ -345,8 +331,11 @@ int removeExtents(RawFile* rawFile) {
 			if(descriptor == NULL || exact == FALSE) {
 				hfs_panic("inconsistent extents information!");
 				return FALSE;
+			} else {
+				removeFromBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey));
+				currentExtent = 0;
+				// Don't continue! We need to process the extents we just loaded
 			}
-			removeFromBTree(rawFile->volume->extentsTree, (BTKey*)(&extentKey));
 		}
 
 		startBlock = descriptor[currentExtent].startBlock;
@@ -355,14 +344,9 @@ int removeExtents(RawFile* rawFile) {
 		currentBlock += blockCount;
 		blocksLeft -= blockCount;
 		currentExtent++;
-		
-		if(currentExtent == 8 && descriptor != NULL) {
-			free(descriptor);
-			descriptor = NULL;
-		}
 	}
 
-	if(descriptor != NULL) {
+	if(descriptor != ((HFSPlusExtentDescriptor*) forkData->extents)) {
 		free(descriptor);
 	}
 
@@ -414,13 +398,13 @@ int writeExtents(RawFile* rawFile) {
 				// Reset for next record
 				currentExtent = 0;
 				memset(descriptor, 0, sizeof(HFSPlusExtentRecord));
-				recordStartBlock = currentBlock;  // New record starts here
+				recordStartBlock = currentBlock;  // New record starts at current position
 			}
 
 			descriptor[currentExtent].startBlock = extent->startBlock;
 			descriptor[currentExtent].blockCount = extent->blockCount;
-			currentBlock += extent->blockCount;
-
+			currentBlock += extent->blockCount;  // Update currentBlock immediately
+			
 			currentExtent++;
 			extent = extent->next;
 		}
@@ -450,6 +434,7 @@ int readExtents(RawFile* rawFile) {
 	HFSPlusExtentKey extentKey;
 	int exact;
 
+	memset(&extentKey, 0, sizeof(HFSPlusExtentKey));
 	extentKey.keyLength = sizeof(HFSPlusExtentKey) - sizeof(extentKey.keyLength);
 	extentKey.forkType = 0;
 	extentKey.fileID = rawFile->id;
@@ -463,8 +448,6 @@ int readExtents(RawFile* rawFile) {
 	lastExtent = NULL;
 
 	while(blocksLeft > 0) {
-		extent = (Extent*) malloc(sizeof(Extent));
-
 		if(currentExtent == 8) {
 			if(rawFile->volume->extentsTree == NULL) {
 				hfs_panic("no extents overflow file loaded yet!");
@@ -482,10 +465,11 @@ int readExtents(RawFile* rawFile) {
 				return FALSE;
 			} else {
 				currentExtent = 0;
-				continue;
+				// Don't continue! We need to process the extents we just loaded
 			}
 		}
 
+		extent = (Extent*) malloc(sizeof(Extent));
 		extent->startBlock = descriptor[currentExtent].startBlock;
 		extent->blockCount = descriptor[currentExtent].blockCount;
 		extent->next = NULL;
